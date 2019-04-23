@@ -1,0 +1,24 @@
+These are the EmotionLines data files for the EmotionX 2019 competition.
+
+Each file contain an array of chat-based dialogue objects, and each dialogue object is an array of line objects. 
+Each line object includes speaker, utterance(s), emotion, and annotation string.
+Here is an example of a line object from the emotionlines.json file:
+
+        {
+            "speaker": "Chandler",
+            "utterance": "My duties?  All right.",
+            "emotion": "surprise",
+            "annotation": "2000030"
+        },
+
+The emotionlines.json file contains 1000 dialogues with a total of 14742 lines.
+
+The emotionlines.augmented.json file has the same dialogues as emotionlines.json. However, it contains additional utterances that were derived by translating the original utterance into a target language, and then back to English.
+The target languages used are German (de), French (fr), and italian (it). Google Translate was used for the translations.
+
+Each utterance was annotated by five people. The annotation string contains the raw count of votes for each emotion by the annotators. The order of the emotions in the string is [neutral, joy, sadness, fear, anger,  surprise, disgust]. For example, in the above line, "2000030" denotes that two annotators voted for "neutral", and three voted for "surprise". Note that the sum of the votes is always five, since the dialogues were annotated by five annotators.
+The emotion string is the utterance's label. It is calculated from the annotation as follows. If a certain emotion has an absolute majority of votes (i.e., three or more votes), then that utterance is labeled with the majority emotion. Otherwise, the utterance is labeled with the "non-neutral" label. In the above example, the emotion is labeled "surprise" because  surprise got three votes.
+Here are some more examples of how the labels are calculated:
+"annotation": "2003000" ⟶  "emotion": "fear"
+"annotation": "0500000" ⟶ "emotion": "joy"
+"annotation": "2011010" ⟶ "emotion": "non-neutral"
