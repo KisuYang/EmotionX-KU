@@ -32,7 +32,7 @@ def main():
   model.train()
   optimizer = torch.optim.Adam(model.parameters(), lr=hparams.learning_rate)
   scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-      optimizer, T_max=len(train_dialogs)//hparams.batch_size, )
+      optimizer, T_max=len(train_dialogs)//hparams.batch_size)
   writer = SummaryWriter(
       log_dir=os.path.join(hparams.log_dir, print_params.cur_model_id))
 
@@ -52,6 +52,7 @@ def main():
       pred_labels = model(batch_dialogs)
       loss = model.cal_loss(batch_labels, pred_labels)
       loss.backward()
+      torch.nn.utils.clip_grad_norm(model.parameters(), hparams.clip)
       optimizer.step()
       tqdm_range.set_description('weighted_cross_entropy: %.4f' % loss.item())
 

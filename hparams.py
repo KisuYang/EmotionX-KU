@@ -23,10 +23,11 @@ BASE_HPARAMS = defaultdict(
   hidden_size=768,
   n_class=4+1, # neutral, joy, sadness, anger + OOD
 
-  n_epoch=10,
+  n_epoch=50,
   batch_size=4,
   learning_rate=5e-5,
   dropout=0.2,
+  clip=5,
 )
 
 YKSMODEL_BERT_FC1_HPARAMS = BASE_HPARAMS.copy()
@@ -34,5 +35,5 @@ YKSMODEL_BERT_FC1_HPARAMS.update(
   #model_name='bert_fc1',
   #model_name='bert_fc2_selu',
   #model_name='shf_slr_bert_fc2_selu',
-  model_name='shf_5e5slr_bert_fc2_selu_w1.',
+  model_name='shf_5e5slr_bert_fc2_selu_w1._gradclip',
 )
