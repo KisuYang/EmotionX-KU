@@ -23,14 +23,16 @@ BASE_HPARAMS = defaultdict(
   hidden_size=768,
   n_class=4+1, # neutral, joy, sadness, anger + OOD
 
-  n_epoch=100,
+  n_epoch=10,
   batch_size=4,
-  learning_rate=1e-4,
-  negative_slope=0.2, # leaky_relu
+  learning_rate=5e-5,
+  dropout=0.2,
 )
 
 YKSMODEL_BERT_FC1_HPARAMS = BASE_HPARAMS.copy()
 YKSMODEL_BERT_FC1_HPARAMS.update(
-  model_name='bert_fc1',
-  saving=True,
+  #model_name='bert_fc1',
+  #model_name='bert_fc2_selu',
+  #model_name='shf_slr_bert_fc2_selu',
+  model_name='shf_5e5slr_bert_fc2_selu_w1.',
 )

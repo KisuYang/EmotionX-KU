@@ -9,16 +9,17 @@ class YksModel_BERT_FC1(nn.Module):
     super().__init__()
     self.hparams = hparams
     self.bert_model = BertModel.from_pretrained(self.hparams.bert_type)
-    self.leaky_relu = nn.LeakyReLU(negative_slope=self.hparams.negative_slope)
-    self.linear = nn.Linear(self.hparams.hidden_size, self.hparams.n_class)
+    self.linear_h = nn.Linear(self.hparams.hidden_size, self.hparams.hidden_size)
+    self.selu = nn.SELU()
+    self.dropout = nn.Dropout(p=self.hparams.dropout)
+    self.linear_o = nn.Linear(self.hparams.hidden_size, self.hparams.n_class)
     self.softmax = nn.Softmax(dim=1)
     self.loss = self._define_weighted_cross_entropy_loss()    
 
   def _define_weighted_cross_entropy_loss(self):
     #TODO: auto-generate the below weights list
-    #n_appear = [20849, 5497, 1579, 2407, 16051] # hand-counted n_appear in train
-    n_appear = [22120, 5580, 1624, 2420, 16172]
-    weights = [sum(n_appear) / n_appear[i] for i in range(len(n_appear))]
+    n_appear = [22120, 5580, 1624, 2420, 16172] # hand-counted n_appear in train
+    weights = [1.0 / n_appear[i] for i in range(len(n_appear))]
     return nn.CrossEntropyLoss(weight=torch.FloatTensor(weights).cuda())
 
   def _get_sep_pos(self, batch_dialogs):
@@ -67,7 +68,8 @@ class YksModel_BERT_FC1(nn.Module):
     # utter_embeddings.size(): [n_utteraces in a batch, hidden_size]
 
     ### Linear
-    utter_softmax = self.softmax(self.linear(utter_embeddings))
+    utter_embeddings = self.dropout(self.selu(self.linear_h(utter_embeddings)))
+    utter_softmax = self.softmax(self.linear_o(utter_embeddings))
     return utter_softmax # [n_utteraces in a batch, n_class]
 
   def cal_loss(self, batch_labels, pred_labels):

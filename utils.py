@@ -1,4 +1,5 @@
 import joblib
+import random
 from datetime import datetime
 from pytorch_pretrained_bert import BertTokenizer
 
@@ -43,6 +44,12 @@ def load_data(hparams, path):
   '''
 
   return global_ids_dialog, global_onehot_label
+
+def shuffle_trainset(train_dialogs, train_labels):
+   random_idx_list = list(range(len(train_dialogs)))
+   random.shuffle(random_idx_list)
+   return ([train_dialogs[idx] for idx in random_idx_list],
+      [train_labels[idx] for idx in random_idx_list])
 
 def get_batch(global_data, batch_size, i_step):
   return global_data[i_step * batch_size : (i_step + 1) * batch_size]

@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 
 from hparams import YKSMODEL_BERT_FC1_HPARAMS
-from utils import load_data, get_batch, get_time
+from utils import load_data, shuffle_trainset, get_batch, get_time
 from models import YksModel_BERT_FC1
 from tensorboardX import SummaryWriter
 
@@ -31,6 +31,8 @@ def main():
   model.cuda()
   model.train()
   optimizer = torch.optim.Adam(model.parameters(), lr=hparams.learning_rate)
+  scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+      optimizer, T_max=len(train_dialogs)//hparams.batch_size, )
   writer = SummaryWriter(
       log_dir=os.path.join(hparams.log_dir, print_params.cur_model_id))
 
@@ -39,6 +41,8 @@ def main():
       print(name, param.size()) # print grad params in model
 
   for i_epoch in range(hparams.n_epoch):
+    scheduler.step()
+    train_dialogs, train_labels = shuffle_trainset(train_dialogs, train_labels)
     tqdm_range = trange(0, len(train_dialogs)//hparams.batch_size, desc='')
     for i_step in tqdm_range:
       model.train()
@@ -76,7 +80,7 @@ def main():
           print_params.high_uwa = uwa          
         if wa > print_params.high_wa:
           print_params.high_wa = wa
-          # if hparams.saving: torch.save(model.state_dict(),PATH)
+          # if True: torch.save(model.state_dict(),PATH)
         print('Highest UWA: %.2f(%%), Highest WA: %.2f(%%)'
             % (print_params.high_uwa*100, print_params.high_wa*100))
         print('Current UWA: %.2f(%%), Current WA: %.2f(%%)' % (uwa*100, wa*100))
