@@ -34,6 +34,22 @@ class YksModel_BERT_FC1(nn.Module):
       tuple([torch.tensor(dialog).cuda()
           for dialog in batch_dialogs]), batch_first=True)
 
+  def _get_segment_tensors(self, sep_positions, batch_dialogs):
+    segment_tensors = torch.zeros(batch_dialogs.size(), dtype=torch.long).cuda()
+    for i_dialog, sep_pos in enumerate(sep_positions):
+      for i_sep, _ in enumerate(sep_pos):
+        if i_sep % 2 == 1:
+          if i_sep == len(sep_pos) - 1:
+            segment_tensors[i_dialog, sep_pos[i_sep]:] = 1
+          else:
+            segment_tensors[i_dialog, sep_pos[i_sep]:sep_pos[i_sep+1]] = 1
+    '''
+    For examples,
+    sep_positions[0] = [0,3,7,13]
+    segment_tensors[0] = [0,0,0,1,1,1,1,0,0,0,0,0,0,1,...,1]
+    '''
+    return segment_tensors
+
   def forward(self, batch_dialogs):
     '''
     For examples,
@@ -41,7 +57,9 @@ class YksModel_BERT_FC1(nn.Module):
     '''
     sep_pos = self._get_sep_pos(batch_dialogs)
     batch_dialogs = self._2dlist_padding(batch_dialogs) # list to padded tensor
-    segment_tensors = torch.zeros(batch_dialogs.size(), dtype=torch.long).cuda() # dummy tensor
+    segment_tensors = torch.zeros(batch_dialogs.size(), dtype=torch.long).cuda()
+    if self.hparams.seg_emb:
+      segment_tensors = self._get_segment_tensors(sep_pos, batch_dialogs) # 0 & 1
     '''
     For examples,
     sep_pos = [[0, 2, 14, 20], [0, 26, 38, 66, 94, 104]]
@@ -85,7 +103,7 @@ class YksModel_BERT_FC1(nn.Module):
 
     return self.loss(pred_labels, target_class)
 
-  def count_appear_and_correct(self, batch_labels, pred_labels):
+  def count_for_eval(self, batch_labels, pred_labels):
     '''
     class: [neutral, joy, sadness, anger, OOD]
     <list> batch_labels[0] = [0, 1, 0, 4]
@@ -101,16 +119,23 @@ class YksModel_BERT_FC1(nn.Module):
     # counting
     n_appear = [0] * (self.hparams.n_class - 1)
     n_correct = [0] * (self.hparams.n_class - 1)
+    n_positive = [0] * (self.hparams.n_class - 1)
     for target, pred in zip(batch_labels, max_indices):
       if target >= self.hparams.n_class - 1: # exclude OOD class
         continue
       elif target == pred:
         n_appear[target] += 1
         n_correct[target] += 1
+        n_positive[target] += 1
       else:
         n_appear[target] += 1
-
-    return [n_appear, n_correct]
+        n_positive[pred] += 1
+    '''
+    appear means TRUE.
+    correct means TRUE POSITIVE.
+    positive means POSITIVE.
+    '''
+    return (n_appear, n_correct, n_positive)
   
   def get_uwa_and_wa(self, n_appear, n_correct):
     '''
@@ -130,6 +155,25 @@ class YksModel_BERT_FC1(nn.Module):
         for i, acc in enumerate(class_accuracy)])
 
     return uwa, wa
+
+  def get_f1_scores(self, n_appear, n_correct, n_positive):
+    precision = [x / y if y > 0 else 0. for x, y in zip(n_correct, n_positive)]
+    recall = [x / y if y > 0 else 0. for x, y in zip(n_correct, n_appear)]
+    f1 = [2 * p * r / (p + r) if p + r > 0 else 0. for p, r in zip(precision, recall)]
+    micro_precision = sum(n_correct) / sum(n_positive)
+    micro_recall = sum(n_correct) / sum(n_appear)
+    micro_f1 = 2 * micro_precision*micro_recall / (micro_precision+micro_recall)
+    macro_precision = sum(precision) / len(precision)
+    macro_recall = sum(recall) / len(recall)
+    macro_f1 = 2 * macro_precision*macro_recall / (macro_precision+macro_recall)
+    '''
+    <list> precision
+    <list> recall
+    <list> f1
+    <scalar> micro_f1
+    <scalar> macro_f1
+    '''
+    return precision, recall, f1, micro_f1, macro_f1
 
 class SomeonesModel_Something_Else(nn.Module):
   def __init__(self, hparams):

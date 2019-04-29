@@ -1,7 +1,7 @@
 # Kisu Yang, willow4@korea.ac.kr
 # Dongyub Lee, jude.lee@kakaocorp.com, dongyub63@gmail.com
 # Taesun Whang, hts920928@korea.ac.kr
-# SeolHwa Lee, whiteldark@korea.ac.kr
+# Seolhwa Lee, whiteldark@korea.ac.kr
 
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
@@ -20,21 +20,24 @@ def main():
   if not torch.cuda.is_available():
     raise NotImplementedError
   hparams = type('', (object,), YKSMODEL_BERT_FC1_HPARAMS)() # dict to class
-  print_params = type('', (object,), {'step':0, 'high_uwa':0., 'high_wa':0.})()
-  print_params.cur_model_id = hparams.model_name+'.'+get_time()
+  tparams = type('', (object,), {
+      'model_name':hparams.model_name+'.'+get_time(),
+      'step':0, 'high_uwa':0., 'high_wa':0.,
+      'high_micro_f1':0., 'high_macro_f1':0.})()
 
   train_dialogs, train_labels = load_data(hparams, hparams.friends_train)
   test_dialogs, test_labels = load_data(hparams, hparams.friends_test)
   
   model = YksModel_BERT_FC1(hparams)
-  #if True: model.load_state_dict(torch.load(PATH))
+  # checkpoint = torch.load(PATH)
+  # model.load_state_dict(checkpoint['model_state_dict'])
   model.cuda()
   model.train()
   optimizer = torch.optim.Adam(model.parameters(), lr=hparams.learning_rate)
   scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
       optimizer, T_max=len(train_dialogs)//hparams.batch_size)
   writer = SummaryWriter(
-      log_dir=os.path.join(hparams.log_dir, print_params.cur_model_id))
+      log_dir=os.path.join(hparams.log_dir, ))
 
   for name, param in model.named_parameters():
     if param.requires_grad:
@@ -52,44 +55,54 @@ def main():
       pred_labels = model(batch_dialogs)
       loss = model.cal_loss(batch_labels, pred_labels)
       loss.backward()
-      torch.nn.utils.clip_grad_norm(model.parameters(), hparams.clip)
+      torch.nn.utils.clip_grad_norm_(model.parameters(), hparams.clip)
       optimizer.step()
       tqdm_range.set_description('weighted_cross_entropy: %.4f' % loss.item())
 
-      if i_step % 40 == 0:
+      if i_step % hparams.print_per == 0:
         model.eval()
         n_appear = [0] * (hparams.n_class - 1)
         n_correct = [0] * (hparams.n_class - 1)
+        n_positive = [0] * (hparams.n_class - 1)
         n_step = len(test_dialogs) // hparams.batch_size
         for i_step in range(n_step):
           batch_dialogs = get_batch(test_dialogs, hparams.batch_size, i_step)
           batch_labels = get_batch(test_labels, hparams.batch_size, i_step)
           pred_labels = model(batch_dialogs)
-          count = model.count_appear_and_correct(batch_labels, pred_labels)
-          n_appear = [x + y for x, y in zip(n_appear, count[0])]
-          n_correct = [x + y for x, y in zip(n_correct, count[1])]
+          counts = model.count_for_eval(batch_labels, pred_labels)
+          n_appear = [x + y for x, y in zip(n_appear, counts[0])]
+          n_correct = [x + y for x, y in zip(n_correct, counts[1])]
+          n_positive = [x + y for x, y in zip(n_positive, counts[2])]
         uwa, wa = model.get_uwa_and_wa(n_appear, n_correct)
+        precision, recall, f1, micro_f1, macro_f1 = model.get_f1_scores(
+            n_appear, n_correct, n_positive)
 
         # print
         print('i_epoch: ', i_epoch)
-        print('n_appear:\t', n_appear)
-        print('n_correct:\t', n_correct)
-        each_accuracy = [x / X * 100 for x, X in zip(n_correct, n_appear)]
-        print('each_accuracy:\t[%.2f(%%), %.2f(%%), %.2f(%%), %.2f(%%)]' %
-          (each_accuracy[0], each_accuracy[1], each_accuracy[2], each_accuracy[3]))
-        if uwa > print_params.high_uwa:
-          print_params.high_uwa = uwa          
-        if wa > print_params.high_wa:
-          print_params.high_wa = wa
-          # if True: torch.save(model.state_dict(),PATH)
-        print('Highest UWA: %.2f(%%), Highest WA: %.2f(%%)'
-            % (print_params.high_uwa*100, print_params.high_wa*100))
-        print('Current UWA: %.2f(%%), Current WA: %.2f(%%)' % (uwa*100, wa*100))
+        print('n_true:\t\t\t', n_appear)
+        print('n_positive:\t\t', n_positive)
+        print('n_true_positive:\t', n_correct)
+        print('precision:\t[%.4f, %.4f, %.4f, %.4f]' % (
+            precision[0], precision[1], precision[2], precision[3]))
+        print('recall:\t\t[%.4f, %.4f, %.4f, %.4f]' % (
+            recall[0], recall[1], recall[2], recall[3]))
+        print('f1:\t\t[%.4f, %.4f, %.4f, %.4f]' % (
+            f1[0], f1[1], f1[2], f1[3]))
+        if micro_f1 > tparams.high_micro_f1:
+          tparams.high_micro_f1 = micro_f1
+        print('Micro F1: %.4f (<=%.4f)' % (micro_f1, tparams.high_micro_f1))
         print()
-        writer.add_scalar(hparams.wce_log, loss, print_params.step)
-        writer.add_scalar(hparams.uwa_log, uwa, print_params.step)
-        writer.add_scalar(hparams.wa_log, wa, print_params.step)
-        print_params.step += 1
+        writer.add_scalar(hparams.micro_f1_log, micro_f1, tparams.step)
+        writer.add_scalar(hparams.wce_log, loss, tparams.step)
+        tparams.step += 1
 
+        #TODO: checkpoint ensembles
+        # torch.save({
+        #     'epoch':i_epoch
+        #     'model_state_dict':model.state_dict(),
+        #     'optimizer_state_dict':optimizer.state_dict(),
+        #     'loss':loss,
+        #   }, PATH)
+        
 if __name__ == '__main__':
   main()
