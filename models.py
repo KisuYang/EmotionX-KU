@@ -1,25 +1,25 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 from pytorch_pretrained_bert import BertModel
 
-class YksModel_BERT_FC1(nn.Module):
+
+class EmotionX_Model(nn.Module):
   def __init__(self, hparams):
     super().__init__()
     self.hparams = hparams
-    self.bert_model = BertModel.from_pretrained(self.hparams.bert_type)
-    self.linear_h = nn.Linear(self.hparams.hidden_size, self.hparams.hidden_size)
+    self.bert_model = BertModel.from_pretrained(hparams.bert_type)
+    self.linear_h = nn.Linear(hparams.hidden_size, hparams.inter_hidden_size)
+    self.linear_o = nn.Linear(hparams.inter_hidden_size, hparams.n_class)
     self.selu = nn.SELU()
-    self.dropout = nn.Dropout(p=self.hparams.dropout)
-    self.linear_o = nn.Linear(self.hparams.hidden_size, self.hparams.n_class)
+    self.dropout = nn.Dropout(p=hparams.dropout)
     self.softmax = nn.Softmax(dim=1)
-    self.loss = self._define_weighted_cross_entropy_loss()    
+    self.loss = self._define_weighted_cross_entropy_loss()
 
   def _define_weighted_cross_entropy_loss(self):
-    #TODO: auto-generate the below weights list
-    n_appear = [22120, 5580, 1624, 2420, 16172] # hand-counted n_appear in train
-    weights = [1.0 / n_appear[i] for i in range(len(n_appear))]
+    weights = [sum(self.hparams.n_appear) / n for n in self.hparams.n_appear]
     return nn.CrossEntropyLoss(weight=torch.FloatTensor(weights).cuda())
 
   def _get_sep_pos(self, batch_dialogs):
@@ -34,22 +34,6 @@ class YksModel_BERT_FC1(nn.Module):
       tuple([torch.tensor(dialog).cuda()
           for dialog in batch_dialogs]), batch_first=True)
 
-  def _get_segment_tensors(self, sep_positions, batch_dialogs):
-    segment_tensors = torch.zeros(batch_dialogs.size(), dtype=torch.long).cuda()
-    for i_dialog, sep_pos in enumerate(sep_positions):
-      for i_sep, _ in enumerate(sep_pos):
-        if i_sep % 2 == 1:
-          if i_sep == len(sep_pos) - 1:
-            segment_tensors[i_dialog, sep_pos[i_sep]:] = 1
-          else:
-            segment_tensors[i_dialog, sep_pos[i_sep]:sep_pos[i_sep+1]] = 1
-    '''
-    For examples,
-    sep_positions[0] = [0,3,7,13]
-    segment_tensors[0] = [0,0,0,1,1,1,1,0,0,0,0,0,0,1,...,1]
-    '''
-    return segment_tensors
-
   def forward(self, batch_dialogs):
     '''
     For examples,
@@ -58,8 +42,6 @@ class YksModel_BERT_FC1(nn.Module):
     sep_pos = self._get_sep_pos(batch_dialogs)
     batch_dialogs = self._2dlist_padding(batch_dialogs) # list to padded tensor
     segment_tensors = torch.zeros(batch_dialogs.size(), dtype=torch.long).cuda()
-    if self.hparams.seg_emb:
-      segment_tensors = self._get_segment_tensors(sep_pos, batch_dialogs) # 0 & 1
     '''
     For examples,
     sep_pos = [[0, 2, 14, 20], [0, 26, 38, 66, 94, 104]]
@@ -71,19 +53,17 @@ class YksModel_BERT_FC1(nn.Module):
     last_layers = output_layers[-1] # [n_batchs, n_tokens, hidden_size]
 
     ### Dialog Embeddings to Utterance Embeddings
-    utter_embeddings = torch.zeros([1, self.hparams.hidden_size]).cuda() # initial dummy tensor
+    max_embeddings = torch.zeros([1, self.hparams.hidden_size]).cuda() # initial dummy tensor
     for i_batch, last_layer in enumerate(last_layers):
       for i_utter in range(len(sep_pos[i_batch]) - 1):
         # tokens embeddings of a utterance
-        tokens_embedding = last_layers[i_batch,
+        tokens_embedding = last_layer[
             sep_pos[i_batch][i_utter] : sep_pos[i_batch][i_utter+1]]
-        # mean = convert tokens embeddings to utterance embedding
-        utter_embedding = torch.mean(tokens_embedding, dim=0)
-        # concat
-        utter_embedding = utter_embedding.view(-1, self.hparams.hidden_size)
-        utter_embeddings = torch.cat([utter_embeddings, utter_embedding])
-    utter_embeddings = utter_embeddings[1:] # remove the initial dummy tensor
-    # utter_embeddings.size(): [n_utteraces in a batch, hidden_size]
+        max_embedding, _ = torch.max(tokens_embedding, dim=0)
+        max_embedding = max_embedding.view(-1, self.hparams.hidden_size)
+        max_embeddings = torch.cat([max_embeddings, max_embedding])
+    max_embeddings = max_embeddings[1:] # remove the initial dummy tensor # size([n_utter in a batch, 768])
+    utter_embeddings = max_embeddings
 
     ### Linear
     utter_embeddings = self.dropout(self.selu(self.linear_h(utter_embeddings)))
@@ -174,9 +154,3 @@ class YksModel_BERT_FC1(nn.Module):
     <scalar> macro_f1
     '''
     return precision, recall, f1, micro_f1, macro_f1
-
-class SomeonesModel_Something_Else(nn.Module):
-  def __init__(self, hparams):
-    super().__init__()
-  def forward(self):
-    return None

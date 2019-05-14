@@ -1,45 +1,36 @@
 from collections import defaultdict
 
-BASE_HPARAMS = defaultdict(
+
+EMOTIONX_MODEL_HPARAMS = defaultdict(
   description='base',
-  friends_train='./data/friends_train_dialogs',
-  friends_test='./data/friends_test_dialogs',
-  
+  model_name='bert_max_selu',
+
+  friends_train='./data/empush4000.joblib',
+  friends_test='./data/friend800.joblib', # CAUTION: duplicated with trainset 
+  empush_train='./data/empush4000.joblib',  
   save_dir='/mnt/raid5/yks/EmotionX/saves',
   log_dir='/mnt/raid5/yks/EmotionX/logs',
-  model_name='',
-  wce_log='train_loss',
-  uwa_log='test_UWA',
-  wa_log='test_WA',
-  micro_f1_log='micro_f1',
+  log_micro_f1='micro_f1',
+  log_wce='train_loss',
 
-  bert_type = 'bert-base-cased',
+  # bert
+  bert_type='bert-base-uncased',
+  max_input_len=512,
   cls_token='[CLS]',
   sep_token='[SEP]',
   pad_token='[PAD]',
+  cls_id=101,
   sep_id=102,
   pad_id=0,
 
+  # classifier
   hidden_size=768,
+  inter_hidden_size=384,
   n_class=4+1, # neutral, joy, sadness, anger + OOD
 
-  n_epoch=50,
-  batch_size=4,
-  print_per=200,
-  learning_rate=5e-5,
-  dropout=0.2,
+  n_epoch=30,
+  batch_size=1,
+  learning_rate=2e-5,
+  dropout=0.1,
   clip=5,
-
-  cls_emb=False,
-  seg_emb=False,
-)
-
-YKSMODEL_BERT_FC1_HPARAMS = BASE_HPARAMS.copy()
-YKSMODEL_BERT_FC1_HPARAMS.update(
-  #model_name='bert_fc1',
-  #model_name='bert_fc2_selu',
-  #model_name='shf_slr_bert_fc2_selu',
-  #model_name='shf_5e5slr_bert_fc2_selu_w1._gradclip',
-  #model_name='bert_selu_gradclip_seg',
-  model_name='bert_selu_gradclip',
 )
