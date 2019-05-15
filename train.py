@@ -26,7 +26,7 @@ def main():
   hparams = type('', (object,), EMOTIONX_MODEL_HPARAMS)() # dict to class
   tparams = type('', (object,), {
       'model_name':hparams.model_name+'.'+get_time(),
-      'step':0, 'print_per':400, 'highest_micro_f1':0.})()
+      'step':0, 'print_per':2000, 'highest_micro_f1':0.})()
 
   train_dialogs, train_labels = load_data(hparams, hparams.friends_train)
   test_dialogs, test_labels = load_data(hparams, hparams.friends_test)

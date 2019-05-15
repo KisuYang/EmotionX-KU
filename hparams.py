@@ -5,7 +5,7 @@ EMOTIONX_MODEL_HPARAMS = defaultdict(
   description='base',
   model_name='bert_max_selu',
 
-  friends_train='./data/empush4000.joblib',
+  friends_train='./data/friend4000.joblib',
   friends_test='./data/friend800.joblib', # CAUTION: duplicated with trainset 
   empush_train='./data/empush4000.joblib',  
   save_dir='/mnt/raid5/yks/EmotionX/saves',
