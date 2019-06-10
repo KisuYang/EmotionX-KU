@@ -1,8 +1,7 @@
 import os
-import joblib
+import json
 import random
 random.seed(0)
-from datetime import datetime
 
 from pytorch_pretrained_bert import BertTokenizer
 
@@ -10,10 +9,10 @@ from pytorch_pretrained_bert import BertTokenizer
 def load_data(hparams, path):
   tokenizer = BertTokenizer.from_pretrained(hparams.bert_type)
 
-  global_tokenized_dialog, global_string_label = [], []  
-  for dialog in joblib.load(path):
+  global_tokenized_dialog, global_string_label = [], []
+  for dialog in json.loads(open(path, 'r', encoding='utf-8').read()):
     tokenized_dialog, string_label = [], []
-    for utter in dialog:
+    for utter in dialog:      
       tokenized_utter = tokenizer.tokenize(utter['utterance'].lower())
       if len(tokenized_dialog + tokenized_utter) + 1 > hparams.max_input_len:
         print('[CAUTION] over max_input_len: ', utter['utterance'])
@@ -61,9 +60,6 @@ def shuffle_trainset(train_dialogs, train_labels):
 
 def get_batch(global_data, batch_size, i_step):
   return global_data[i_step * batch_size : (i_step + 1) * batch_size]
-
-def get_time():
-  return str(datetime.now()).replace(':','').replace(' ','.')
 
 def make_dir(directory):
   #CAUTION: overwrite

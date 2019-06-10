@@ -19,6 +19,7 @@ class EmotionX_Model(nn.Module):
     self.loss = self._define_weighted_cross_entropy_loss()
 
   def _define_weighted_cross_entropy_loss(self):
+    print(self.hparams.n_appear)
     weights = [sum(self.hparams.n_appear) / n for n in self.hparams.n_appear]
     return nn.CrossEntropyLoss(weight=torch.FloatTensor(weights).cuda())
 
@@ -34,7 +35,7 @@ class EmotionX_Model(nn.Module):
       tuple([torch.tensor(dialog).cuda()
           for dialog in batch_dialogs]), batch_first=True)
 
-  def forward(self, batch_dialogs):
+  def forward(self, batch_dialogs): #TODO: [cls] 맨앞에 추가할지 말지
     '''
     For examples,
     batch_dialogs[0] = [6006, 16006, 102, 33222, 102]
@@ -52,7 +53,7 @@ class EmotionX_Model(nn.Module):
     output_layers = torch.stack(output_layers, dim=0) # list of tensors to tensor
     last_layers = output_layers[-1] # [n_batchs, n_tokens, hidden_size]
 
-    ### Dialog Embeddings to Utterance Embeddings
+    # Dialog Embeddings to Utterance Embeddings - Max
     max_embeddings = torch.zeros([1, self.hparams.hidden_size]).cuda() # initial dummy tensor
     for i_batch, last_layer in enumerate(last_layers):
       for i_utter in range(len(sep_pos[i_batch]) - 1):

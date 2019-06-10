@@ -3,18 +3,21 @@ from collections import defaultdict
 
 EMOTIONX_MODEL_HPARAMS = defaultdict(
   description='base',
-  model_name='bert_max_selu',
+  model_name='base_max_both_em',
 
-  friends_train='./data/friend4000.joblib',
-  friends_test='./data/friend800.joblib', # CAUTION: duplicated with trainset 
-  empush_train='./data/empush4000.joblib',  
-  save_dir='/mnt/raid5/yks/EmotionX/saves',
-  log_dir='/mnt/raid5/yks/EmotionX/logs',
+  fr_test_path='./data/friends_test.json',
+  fr_train_path='./data/friends_train.json',
+  em_test_path='./data/emotionpush_test.json',
+  em_train_path='./data/emotionpush_train.json',  
+
+  save_dir='./saves/',
+  log_dir='./logs/',
   log_micro_f1='micro_f1',
-  log_wce='train_loss',
+  log_wce_loss='train_loss',
 
   # bert
-  bert_type='bert-base-uncased',
+  bert_type='bert-base-uncased', # we used post-trained model instead of this.
+  posttrained_model_path='',
   max_input_len=512,
   cls_token='[CLS]',
   sep_token='[SEP]',
@@ -28,7 +31,8 @@ EMOTIONX_MODEL_HPARAMS = defaultdict(
   inter_hidden_size=384,
   n_class=4+1, # neutral, joy, sadness, anger + OOD
 
-  n_epoch=30,
+  # train
+  n_epoch=10,
   batch_size=1,
   learning_rate=2e-5,
   dropout=0.1,
