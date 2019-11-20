@@ -1,6 +1,6 @@
 # EmotionX-KU: BERT-Max based Contextual Emotion Classifier
 
-### Description
+### Model Description
 
 Our paper is available at https://arxiv.org/pdf/1906.11565.pdf
 
